@@ -1,2 +1,2 @@
 language = "python"
-run = "gunicorn main:app --bind 0.0.0.0:3000"
+run = "gunicorn Main:app --bind 0.0.0.0:3000"
