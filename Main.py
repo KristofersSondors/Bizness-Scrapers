@@ -1,11 +1,12 @@
+import os
 from flask import Flask, render_template, request, send_file
 import io, csv, time, re
 import googlemaps, requests
 
 app = Flask(__name__)
 
-# ← your key, loaded from Fly.io secret
-API_KEY = os.environ["AIzaSyChVdtOkB7mzKIQrfqNYkWKtY0WwlW2hyw"]
+# Load your hard-coded key from Replit Secrets
+API_KEY = os.environ["API_KEY"]
 
 def geocode_city(gmaps, city):
     geo = gmaps.geocode(city)
@@ -35,16 +36,18 @@ def get_details(gmaps, pid):
     fields = ["name","formatted_address","formatted_phone_number","website"]
     r = gmaps.place(place_id=pid, fields=fields).get("result", {})
     return {
-        "name": r.get("name"),
+        "name":    r.get("name"),
         "address": r.get("formatted_address"),
-        "phone": r.get("formatted_phone_number"),
+        "phone":   r.get("formatted_phone_number"),
         "website": r.get("website")
     }
 
 def scrape_email(url):
+    if not url:
+        return ""
     try:
         txt = requests.get(url, timeout=5).text
-        em = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", txt)
+        em  = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", txt)
         return em[0] if em else ""
     except:
         return ""
@@ -57,16 +60,18 @@ def index():
         maximum = int(request.form.get("max", 50))
         gmaps   = googlemaps.Client(key=API_KEY)
 
-        lat, _ = geocode_city(gmaps, city)
+        # Run scraper logic
+        _, _ = geocode_city(gmaps, city)
         query  = f"{kw} in {city}"
         places = fetch_places(gmaps, query, maximum)
 
-        buf = io.StringIO()
+        # Build CSV in memory
+        buf    = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow(["name","address","phone","website","email"])
         for p in places:
             info = get_details(gmaps, p["place_id"])
-            info["email"] = scrape_email(info["website"] or "")
+            info["email"] = scrape_email(info["website"])
             writer.writerow([info[k] for k in ["name","address","phone","website","email"]])
         buf.seek(0)
 
@@ -78,3 +83,7 @@ def index():
         )
 
     return render_template("index.html")
+
+if __name__ == "__main__":
+    # Replit expects port 3000 and host 0.0.0.0
+    app.run(host="0.0.0.0", port=3000)
